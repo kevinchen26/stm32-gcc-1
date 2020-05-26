@@ -1,0 +1,38 @@
+TARGET=test
+CC=arm-none-eabi-gcc
+OBJCOPY=arm-none-eabi-objcopy
+RM=rm -f
+CORE=3
+CPUFLAGS=-mthumb -mcpu=cortex-m$(CORE)
+
+TOP=$(shell pwd)
+#INC_FLAGS= -I $(TOP)
+LDFLAGS = -T stm32_flash.ld -Wl,-cref,-u,Reset_Handler -Wl,-Map=$(TARGET).map -Wl,--gc-sections -Wl,--defsym=malloc_getpagesize_P=0x80 -Wl,--start-group -lc -lm -Wl,--end-group
+CFLAGS=-g -o
+
+C_SRC=$(shell find ./ -name '*.c')  
+C_OBJ=$(C_SRC:%.c=%.o) 
+
+.PHONY: all clean update
+
+all:$(C_OBJ)
+	$(CC) $(C_OBJ) -T stm32_flash.ld -o $(TARGET).elf -mthumb -mcpu=cortex-m3 -Wl,--start-group -lc -lm -Wl,--end-group -specs=nano.specs -specs=nosys.specs -static -Wl,-cref,-u,Reset_Handler -Wl,-Map=Project.map -Wl,--gc-sections -Wl,--defsym=malloc_getpagesize_P=0x80 
+	$(OBJCOPY) $(TARGET).elf  $(TARGET).bin -Obinary 
+	$(OBJCOPY) $(TARGET).elf  $(TARGET).hex -Oihex
+
+$(C_OBJ):%.o:%.c
+	$(CC) -c $(CFLAGS) -o $@ $<
+
+$(TARGET):startup_stm32f10x_hd.o main.o
+	$(CC) $^ $(CPUFLAGS) $(LDFLAGS) $(CFLAGS) $(TARGET).elf
+startup_stm32f10x_hd.o:startup_stm32f10x_hd.s
+	$(CC) -c $^ $(CPUFLAGS) $(CFLAGS) $@
+main.o:main.c
+	$(CC) -c $^ $(CPUFLAGS) $(CFLAGS) $@
+
+bin:
+	$(OBJCOPY) $(TARGET).elf $(TARGET).bin
+hex:
+	$(OBJCOPY) $(TARGET).elf -Oihex $(TARGET).hex
+clean:
+	$(RM) *.o $(TARGET).*
